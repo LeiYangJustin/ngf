@@ -9,6 +9,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
+#include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
@@ -209,7 +210,7 @@ vk::DescriptorSet neural_geometry_image(DeviceRenderContext &engine, const Homog
 	auto vertex_texture = allocator(hngf.vertices, { vertices, 1 }, vk::ImageType::e1D);
 	auto feature_texture = allocator(hngf.features, { features, patches });
 
-	auto bias_texture = allocator(hngf.biases, { biases, 1 }, vk::ImageType::e1D);
+	auto bias_texture = allocator(hngf.biases, { biases / 4, 1 }, vk::ImageType::e1D);
 	auto W0_texture = allocator(hngf.W0, { 16, wsize });
 	auto W1_texture = allocator(hngf.W1, { 16, 64 });
 	auto W2_texture = allocator(hngf.W2, { 16, 64 });
@@ -219,12 +220,16 @@ vk::DescriptorSet neural_geometry_image(DeviceRenderContext &engine, const Homog
 	vk::DescriptorSet dset = littlevk::bind(engine.device, engine.descriptor_pool)
 		.allocate_descriptor_sets(*engine.primaries.at("Shaded").dsl).front();
 
+	vk::Sampler integer_sampler = littlevk::SamplerAssembler(engine.device, engine.dal)
+		.filtering(vk::Filter::eNearest)
+		.mipping(vk::SamplerMipmapMode::eNearest);
+
 	vk::Sampler floating_sampler = littlevk::SamplerAssembler(engine.device, engine.dal);
 
 	auto SROO = vk::ImageLayout::eShaderReadOnlyOptimal;
 
 	littlevk::bind(engine.device, dset, meshlet_dslbs)
-		.update(0, 0, floating_sampler, complex_texture.view, SROO)
+		.update(0, 0, integer_sampler, complex_texture.view, SROO)
 		.update(1, 0, floating_sampler, vertex_texture.view, SROO)
 		.update(2, 0, floating_sampler, feature_texture.view, SROO)
 		.update(3, 0, floating_sampler, bias_texture.view, SROO)
@@ -262,8 +267,11 @@ std::ifstream::pos_type filesize(const std::string &filename)
 
 int main(int argc, char *argv[])
 {
-	littlevk::config().enable_validation_layers = false;
-	littlevk::config().enable_logging = false;
+	{
+		auto &config = littlevk::config();
+		config.enable_validation_layers = true;
+		config.enable_logging = false;
+	}
 
 	if (argc < 2) {
 		ulog_error("testbed", "Usage: testbed <ngf>\n");
