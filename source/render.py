@@ -95,6 +95,12 @@ class Renderer:
         environment = torch.cat((environment, alpha), dim=-1)
         self.sh = SphericalHarmonics(environment)
 
+    """
+    v: vertices (N, 3)
+    n: normals (N, 3)
+    f: faces (F, 3)
+    views: view matrices (B, 4, 4)
+    """
     def render(self, v: torch.Tensor, n: torch.Tensor, f: torch.Tensor, views: torch.Tensor) -> torch.Tensor:
         mvps = self.proj @ views
         v_hom = torch.nn.functional.pad(v, (0, 1), 'constant', 1.0)
@@ -102,6 +108,7 @@ class Renderer:
 
         layers = []
         with dr.DepthPeeler(self.ctx, v_ndc, f, self.res) as peeler:
+            ## three layers of depth peeling
             for i in range(3):
                 rast, rast_db = peeler.rasterize_next_layer()
                 normals = dr.interpolate(n, rast, f)[0]

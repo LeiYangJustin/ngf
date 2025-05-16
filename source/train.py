@@ -12,7 +12,9 @@ import multiprocessing
 from util import *
 from ngf import NGF
 from render import Renderer
+import shutil
 
+import trimesh
 
 class Trainer:
     @staticmethod
@@ -25,7 +27,7 @@ class Trainer:
         ms.save_current_mesh(destination)
         logging.info(f'Quadrangulated mesh into {destination}')
 
-    def __init__(self, mesh: str, lod: int, features: int, batch: int):
+    def __init__(self, mesh: str, lod: int, features: int, batch: int, quad: str = None):
         # Properties
         self.path = os.path.abspath(mesh)
         self.cameras = 200
@@ -42,16 +44,26 @@ class Trainer:
         self.target, normalizer = load_mesh(mesh)
         logging.info(f'Loaded reference mesh {mesh}')
 
-        qargs = (mesh, 2 * lod, self.exporter.partitioned())
-        proc = multiprocessing.Process(target=Trainer.quadrangulate_surface, args=qargs)
-        proc.start()
+        tgt_mesh = trimesh.Trimesh(vertices=self.target.vertices.cpu(), faces=self.target.faces.cpu())
+        tgt_mesh.export(self.exporter.target())
+        logging.info(f'Exported reference mesh to {self.exporter.target()}')
+        # exit()
 
-        # Wait for minute before termimating
-        proc.join(60)
-        if proc.is_alive():
-            logging.error('Quadrangulation running overtime')
-            proc.terminate()
-            exit()
+        if quad is not None:
+            ## saving the quadrangulated mesh to self.exporter.partitioned()
+            print("Using pre-computed quadrangulated mesh")
+            shutil.copyfile(quad, self.exporter.partitioned())
+        else:
+            qargs = (mesh, 2 * lod, self.exporter.partitioned())
+            proc = multiprocessing.Process(target=Trainer.quadrangulate_surface, args=qargs)
+            proc.start()
+
+            # Wait for minute before termimating
+            proc.join(60)
+            if proc.is_alive():
+                logging.error('Quadrangulation running overtime')
+                proc.terminate()
+                exit()
 
         self.renderer = Renderer()
         logging.info('Constructed renderer for optimization')
@@ -145,6 +157,9 @@ class Trainer:
         self.reference_views = self.precompute_reference_views()
         logging.info('Cached reference views')
 
+        # num_params = sum(p.numel() for p in self.ngf.parameters() if p.requires_grad)
+        # print(f'Number of parameters: {num_params}')
+
         for rate in [4, 8, 12, 16]:
             opt = torch.optim.Adam(self.ngf.parameters(), 1e-3)
             rate_losses = self.optimize_resolution(opt, rate)
@@ -165,18 +180,18 @@ class Trainer:
 
         logging.info('Exporting neural geometry field as binary')
 
-        # Plot results
-        _, axs = plt.subplots(1, 2, layout='constrained')
+        # # Plot results
+        # _, axs = plt.subplots(1, 2, layout='constrained')
 
-        axs[0].plot(self.losses['render'], label='Render')
-        axs[0].legend()
-        axs[0].set_yscale('log')
+        # axs[0].plot(self.losses['render'], label='Render')
+        # axs[0].legend()
+        # axs[0].set_yscale('log')
 
-        axs[1].plot(self.losses['laplacian'], label='Laplacian')
-        axs[1].legend()
-        axs[1].set_yscale('log')
+        # axs[1].plot(self.losses['laplacian'], label='Laplacian')
+        # axs[1].legend()
+        # axs[1].set_yscale('log')
 
-        plt.savefig(self.exporter.plot())
+        # plt.savefig(self.exporter.plot())
 
         logging.info('Loss history exported')
 
@@ -247,5 +262,5 @@ if __name__ == '__main__':
     trainer.run()
     trainer.export()
 
-    if args.display:
-        trainer.display()
+    # if args.display:
+    #     trainer.display()

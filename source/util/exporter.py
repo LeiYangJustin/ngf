@@ -8,7 +8,9 @@ class Exporter:
     binaries = os.path.join('results', 'binaries')
     loss = os.path.join('results', 'loss')
     stl = os.path.join('results', 'stl')
+    tgt = os.path.join('results', 'normalized_target')
     meta = os.path.join('results', 'meta')
+    
 
     @staticmethod
     def dirfill():
@@ -18,6 +20,7 @@ class Exporter:
         os.makedirs(Exporter.binaries, exist_ok=True)
         os.makedirs(Exporter.loss, exist_ok=True)
         os.makedirs(Exporter.stl, exist_ok=True)
+        os.makedirs(Exporter.tgt, exist_ok=True)
         os.makedirs(Exporter.meta, exist_ok=True)
 
     def __init__(self, mesh: str, lod: int, features: int):
@@ -44,3 +47,6 @@ class Exporter:
 
     def metadata(self):
         return os.path.join(Exporter.meta, self.basename + '.json')
+    
+    def target(self):
+        return os.path.join(Exporter.tgt, self.basename + '.stl')

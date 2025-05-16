@@ -61,9 +61,9 @@ class NGF:
                  jittering: bool,
                  normals: bool,
                  mlp=None) -> None:
-        self.points = points
-        self.features = features
-        self.complexes = complexes
+        self.points = points ## (#V, 3)
+        self.features = features ## (#V, D)
+        self.complexes = complexes ## (#F, 4)
         self.fflevels = fflevels
         self.jittering = jittering
         self.normals = normals
